@@ -26,7 +26,8 @@ rule run
 ''')
 
     modes = {
-        'dbg':  ('$clang -fsanitize=address,integer,undefined -fno-sanitize-recover=all', ''),
+        'dbg':  ('$clang -fno-sanitize-recover=all -fsanitize=address,integer,undefined ', ''),
+        'tsan': ('$clang -fno-sanitize-recover=all -fsanitize=thread', ''),
         'opt':  ('$clang -Os -DNDEBUG', ''),
         'gcc':  ('gcc-13 -O1 -Wall -Wextra', ''),
         'wasm': ('zig cc -Os -target wasm32-wasi', 'wasmer'),
