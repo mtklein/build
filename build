@@ -26,17 +26,18 @@ rule run
 ''')
 
     modes = {
-        'dbg':  ('$clang -fno-sanitize-recover=all -fsanitize=address,integer,undefined ', ''),
-        'tsan': ('$clang -fno-sanitize-recover=all -fsanitize=thread', ''),
-        'opt':  ('$clang -Os -DNDEBUG', ''),
-        'gcc':  ('gcc-13 -Os -Wall -Wextra', ''),
-        'wasm': ('zig cc -Os -target wasm32-wasi', 'wasmer'),
+        'dbg':  (      '', '$clang -fno-sanitize-recover=all -fsanitize=address,integer,undefined'),
+        'tsan': (      '', '$clang -fno-sanitize-recover=all -fsanitize=thread'),
+        'opt':  (      '', '$clang -Os -DNDEBUG'),
+        'x86':  (      '', '$clang -Os -DNDEBUG -arch x86_64'),
+        'gcc':  (      '', 'gcc-13 -Os -Wall -Wextra'),
+        'wasm': ('wasmer', 'zig cc -Os -target wasm32-wasi'),
     }
     srcs = subprocess.check_output(['git', 'ls-files', '*.c']).decode().split()
     main = subprocess.check_output(['git', 'grep', '-l', 'main('] + srcs).decode().split()
     rest = [src for src in srcs if src not in main]
 
-    for mode,(cc,runtime) in modes.items():
+    for mode,(runtime,cc) in modes.items():
         def target(src):
             return os.path.join('out', mode, os.path.splitext(src)[0])
         for src in srcs:
