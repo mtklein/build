@@ -15,9 +15,6 @@ rule compile
   depfile = $out.d
   deps    = gcc
 
-rule archive
-  command = zig ar rcs $out $in
-
 rule link
   command = $cc -Wl,-dead_strip $in -o $out
 
@@ -42,9 +39,9 @@ rule run
             return os.path.join('out', mode, os.path.splitext(src)[0])
         for src in srcs:
             b.write(f'build {target(src)}.o: compile {src}\n  cc={cc}\n')
-        b.write(f'build {target("lib")}.a: archive {" ".join(target(src)+".o" for src in rest)}\n')
         for src in main:
-            b.write(f'build {target(src)}: link {target(src)}.o {target("lib")}.a\n  cc={cc}\n')
+            b.write(f'build {target(src)}: link {target(src)}.o'
+                    f' {" ".join(target(src)+".o" for src in rest)}\n  cc={cc}\n')
             if 'test' in src:
                 b.write(f'build {target(src)}.ok: run {target(src)}\n  runtime={runtime}\n')
 
