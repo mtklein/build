@@ -30,7 +30,6 @@ rule run
         'x86':  (      '', '$clang -Os -DNDEBUG -arch x86_64 -arch x86_64h'),
         'gcc':  (      '', 'gcc-13 -Os -Wall -Wextra'),
         'wasm': ('wasmer', 'zig cc -Os -target wasm32-wasi'),
-        'none': (      '', 'gcc-13 -Os -U__GNUC__ -Wpedantic -ansi -std=c11'),
     }
     srcs = subprocess.check_output(['git', 'ls-files', '*.c']).decode().split()
     main = subprocess.check_output(['git', 'grep', '-l', 'main('] + srcs).decode().split()
