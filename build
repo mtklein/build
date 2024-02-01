@@ -4,6 +4,9 @@ import os
 import subprocess
 import sys
 
+def call(cmd):
+    return subprocess.run(cmd, stdout=subprocess.PIPE).stdout.decode().split()
+
 with open('build.ninja', 'w') as b:
     b.write('''
 builddir = out
@@ -23,16 +26,20 @@ rule run
 ''')
 
     modes = {
-        'dbg':  (      '', '$clang -fno-sanitize-recover=all -fsanitize=address,integer,undefined'),
-        'tsan': (      '', '$clang -fno-sanitize-recover=all -fsanitize=thread'),
-        'opt':  (      '', '$clang -Os -DNDEBUG'),
-        'lto':  (      '', '$clang -Os -DNDEBUG -flto'),
-        'x86':  (      '', '$clang -Os -DNDEBUG -arch x86_64 -arch x86_64h'),
-        'gcc':  (      '', 'gcc-13 -Os -Wall -Wextra'),
-        'wasm': ('wasmer', 'zig cc -Os -target wasm32-wasi'),
+        'dbg':  ('', '$clang -fno-sanitize-recover=all -fsanitize=address,integer,undefined'),
+        'tsan': ('', '$clang -fno-sanitize-recover=all -fsanitize=thread'),
+        'opt':  ('', '$clang -Os -DNDEBUG -march=native'),
+        'lto':  ('', '$clang -Os -DNDEBUG -march=native -flto'),
+        'gcc':  ('', 'gcc    -Os -DNDEBUG -march=native -Wall -Wextra'),
     }
-    srcs = subprocess.check_output(['git', 'ls-files', '*.c']).decode().split()
-    main = subprocess.check_output(['git', 'grep', '-l', 'main('] + srcs).decode().split()
+    if sys.platform.startswith('darwin'):
+        modes.update({
+            'x86':  (      '', '$clang -Os -DNDEBUG -arch x86_64 -arch x86_64h'),
+            'gcc':  (      '', 'gcc-13 -Os -Wall -Wextra'),
+            'wasm': ('wasmer', 'zig cc -Os -target wasm32-wasi'),
+        })
+    srcs = call(['git', 'ls-files', '*.c'])
+    main = call(['git', 'grep', '-l', 'main('] + srcs)
     rest = [src for src in srcs if src not in main]
 
     for mode,(runtime,cc) in modes.items():
