@@ -19,7 +19,7 @@ rule compile
   deps    = gcc
 
 rule link
-  command = $cc -Wl,-dead_strip $in -o $out
+  command = $cc $ldflags $in -o $out
 
 rule run
   command = $runtime ./$in > $out
@@ -33,11 +33,13 @@ rule run
         'gcc':  ('', 'gcc    -Os -DNDEBUG -march=native -Wall -Wextra'),
     }
     if sys.platform.startswith('darwin'):
+        b.write('ldflags = -Wl,-dead_strip\n')
         modes.update({
             'x86':  (      '', '$clang -Os -DNDEBUG -arch x86_64 -arch x86_64h'),
             'gcc':  (      '', 'gcc-13 -Os -Wall -Wextra'),
             'wasm': ('wasmer', 'zig cc -Os -target wasm32-wasi'),
         })
+
     srcs = call(['git', 'ls-files', '*.c'])
     main = call(['git', 'grep', '-l', 'main('] + srcs)
     rest = [src for src in srcs if src not in main]
