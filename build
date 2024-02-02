@@ -30,6 +30,7 @@ rule run
 
     modes = {
         'dbg':  ('', '$clang -fno-sanitize-recover=all -fsanitize=address,integer,undefined'),
+        'msan': ('', '$clang -fno-sanitize-recover=all -fsanitize=memory'),
         'tsan': ('', '$clang -fno-sanitize-recover=all -fsanitize=thread'),
         'opt':  ('', '$clang -Os -DNDEBUG -march=native'),
         'lto':  ('', '$clang -Os -DNDEBUG -march=native -flto'),
