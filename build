@@ -4,60 +4,50 @@ import os
 import subprocess
 import sys
 
-def call(cmd):
-    return subprocess.run(cmd, stdout=subprocess.PIPE).stdout.decode().split()
+def stdout(*cmd):
+    return subprocess.run(cmd, stdout=subprocess.PIPE).stdout.decode()
 
 with open('build.ninja', 'w') as b:
     b.write('''
 builddir = out
 
+gcc   = gcc   -Wall -Wextra
+tcc   = tcc   -Wall
 clang = clang -Weverything $
-              -Wno-poison-system-directories $
               -Wno-declaration-after-statement $
-              -Wno-unsafe-buffer-usage
+              -Wno-poison-system-directories $
+              -Wno-unsafe-buffer-usage $
+
+asan = $clang -fno-sanitize-recover=all -fsanitize=address,integer,undefined
+msan = $clang -fno-sanitize-recover=all -fsanitize=memory -fsanitize-memory-track-origins
+tsan = $clang -fno-sanitize-recover=all -fsanitize=thread
+lto  = $clang -flto
 
 rule compile
-  command = $cc -g -Werror -fdiagnostics-color -MD -MF $out.d -c $in -o $out
+  command = $cc -O1 -march=native -g -Werror -fdiagnostics-color -MD -MF $out.d -c $in -o $out
   depfile = $out.d
   deps    = gcc
 
 rule link
-  command = $cc $ldflags $in -o $out
+  command = $cc $in -o $out
 
 rule run
-  command = $runtime ./$in > $out
+  command = ./$in > $out
 ''')
 
-    modes = {
-        'dbg':  ('', '$clang -fno-sanitize-recover=all -fsanitize=address,integer,undefined'),
-        'msan': ('', '$clang -fno-sanitize-recover=all -fsanitize=memory'),
-        'tsan': ('', '$clang -fno-sanitize-recover=all -fsanitize=thread'),
-        'opt':  ('', '$clang -Os -DNDEBUG -march=native'),
-        'lto':  ('', '$clang -Os -DNDEBUG -march=native -flto'),
-        'gcc':  ('', 'gcc    -Os -DNDEBUG -march=native -Wall -Wextra'),
-    }
-    if sys.platform.startswith('darwin'):
-        b.write('ldflags = -Wl,-dead_strip\n')
-        modes.update({
-            'x86':  (      '', '$clang -Os -DNDEBUG -arch x86_64 -arch x86_64h'),
-            'gcc':  (      '', 'gcc-13 -Os -Wall -Wextra'),
-            'wasm': ('wasmer', 'zig cc -Os -target wasm32-wasi'),
-        })
-
-    srcs = call(['git', 'ls-files', '*.c'])
-    main = call(['git', 'grep', '-l', 'main('] + srcs)
+    srcs = stdout('git', 'ls-files', '*.c').split()
+    main = stdout('git', 'grep', '-l', 'main(', *srcs).split()
     rest = [src for src in srcs if src not in main]
 
-    for mode,(runtime,cc) in modes.items():
-        def target(src):
-            return os.path.join('out', mode, os.path.splitext(src)[0])
+    for cc in ['gcc','tcc','clang', 'asan','msan','tsan','lto']:
+        target = lambda src: f'out/{cc}/{os.path.splitext(src)[0]}'
         for src in srcs:
-            b.write(f'build {target(src)}.o: compile {src}\n  cc={cc}\n')
+            b.write(f'build {target(src)}.o: compile {src}\n  cc=${cc}\n')
         for src in main:
             b.write(f'build {target(src)}: link {target(src)}.o'
-                    f' {" ".join(target(src)+".o" for src in rest)}\n  cc={cc}\n')
+                    f' {" ".join(target(src)+".o" for src in rest)}\n  cc=${cc}\n')
             if 'test' in src:
-                b.write(f'build {target(src)}.ok: run {target(src)}\n  runtime={runtime}\n')
+                b.write(f'build {target(src)}.ok: run {target(src)}\n')
 
 rc = subprocess.call(['ninja'] + sys.argv[1:])
 if rc == 0:
