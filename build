@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import glob
 import os
 import subprocess
 import sys
@@ -11,20 +12,8 @@ with open('build.ninja', 'w') as b:
     b.write('''
 builddir = out
 
-gcc   = gcc   -Wall -Wextra
-tcc   = tcc   -Wall
-clang = clang -Weverything $
-              -Wno-declaration-after-statement $
-              -Wno-poison-system-directories $
-              -Wno-unsafe-buffer-usage $
-
-asan = $clang -fno-sanitize-recover=all -fsanitize=address,integer,undefined
-msan = $clang -fno-sanitize-recover=all -fsanitize=memory -fsanitize-memory-track-origins
-tsan = $clang -fno-sanitize-recover=all -fsanitize=thread
-lto  = $clang -flto
-
 rule compile
-  command = $cc -O1 -march=native -g -Werror -fdiagnostics-color -MD -MF $out.d -c $in -o $out
+  command = $cc -O1 -g -Werror -fdiagnostics-color -MD -MF $out.d -c $in -o $out
   depfile = $out.d
   deps    = gcc
 
@@ -35,11 +24,44 @@ rule run
   command = ./$in > $out
 ''')
 
+    modes = []
+    for pat in ['/usr/bin/clang', '/opt/homebrew/opt/llvm/bin/clang-[0-9][0-9]',
+                '/usr/bin/gcc'  , '/opt/homebrew/opt/gcc/bin/gcc-[0-9][0-9]',
+                '/usr/bin/tcc']:
+        for cmd in glob.glob(pat):
+            name = os.path.basename(cmd)
+            if 'gcc' in name and 'clang' in stdout(cmd, '--version'):
+                continue
+            w = ['-Wall', '-Wextra']
+            if 'clang' in name:
+                w = ['-Weverything'
+                     , '-Wno-declaration-after-statement'
+                     , '-Wno-poison-system-directories'
+                     , '-Wno-unsafe-buffer-usage'
+                     ]
+            b.write(f'{name} = {cmd} {" ".join(w)}\n')
+            modes.append(name)
+
+    if 'clang' in modes:
+        b.write('''
+asan = $clang -fno-sanitize-recover=all -fsanitize=address,integer,undefined
+msan = $clang -fno-sanitize-recover=all -fsanitize=memory -fsanitize-memory-track-origins
+tsan = $clang -fno-sanitize-recover=all -fsanitize=thread
+lto  = $clang -flto
+nat  = $clang -march=native
+x86  = $clang -arch x86_64 -arch x86_64h
+''')
+        modes += ['asan','tsan','lto','nat']
+        if sys.platform.startswith('linux'):
+            modes += ['msan']
+        if sys.platform.startswith('darwin'):
+            modes += ['x86']
+
     srcs = stdout('git', 'ls-files', '*.c').split()
     main = stdout('git', 'grep', '-l', 'main(', *srcs).split()
     rest = [src for src in srcs if src not in main]
 
-    for cc in ['gcc','tcc','clang', 'asan','msan','tsan','lto']:
+    for cc in modes:
         target = lambda src: f'out/{cc}/{os.path.splitext(src)[0]}'
         for src in srcs:
             b.write(f'build {target(src)}.o: compile {src}\n  cc=${cc}\n')
