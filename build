@@ -22,41 +22,47 @@ rule link
   command = $cc $in -o $out
 
 rule run
-  command = ./$in > $out
+  command = $runtime ./$in > $out
 ''')
 
-    modes = []
+    modes = {}
     for pat in ['/usr/bin/clang', '/opt/homebrew/opt/llvm/bin/clang-[0-9][0-9]',
                 '/usr/bin/gcc'  , '/opt/homebrew/opt/gcc/bin/gcc-[0-9][0-9]',
-                '/usr/bin/tcc']:
+                '/usr/bin/tcc',   '/opt/homebrew/bin/zig']:
         for cmd in glob.glob(pat):
             name = os.path.basename(cmd)
             if 'gcc' in name and 'clang' in stdout(cmd, '--version'):
                 continue
-            w = ['-Wall', '-Wextra']
-            if 'clang' in name:
-                w = ['-Weverything'
-                     , '-Wno-declaration-after-statement'
-                     , '-Wno-poison-system-directories'
-                     , '-Wno-unsafe-buffer-usage'
-                     ]
-            b.write(f'{name} = {cmd} {" ".join(w)}\n')
-            modes.append(name)
+            flags = ['-Wall', '-Wextra']
+            if 'clang' in name or 'zig' in name:
+                flags = ['-Weverything'
+                         , '-Wno-declaration-after-statement'
+                         , '-Wno-poison-system-directories'
+                         , '-Wno-unsafe-buffer-usage'
+                         ]
+            if 'zig' in name:
+                flags = ['cc'] + flags
+            b.write(f'{name} = {cmd} {" ".join(flags)}\n')
+            modes[name] = ''
 
-    if 'clang' in modes:
-        b.write('''
+    b.write('''
 asan = $clang -fno-sanitize-recover=all -fsanitize=address,integer,undefined
 msan = $clang -fno-sanitize-recover=all -fsanitize=memory -fsanitize-memory-track-origins
 tsan = $clang -fno-sanitize-recover=all -fsanitize=thread
 lto  = $clang -flto
 nat  = $clang -march=native
 x86  = $clang -arch x86_64 -arch x86_64h
+wasm = $zig -target wasm32-wasi
 ''')
-        modes += ['asan','tsan','lto','nat']
+
+    if 'clang' in modes:
+        modes['asan'] = modes['tsan'] = modes['lto'] = modes['nat'] = ''
         if sys.platform.startswith('linux'):
-            modes += ['msan']
+            modes['msan'] = ''
         if sys.platform.startswith('darwin'):
-            modes += ['x86']
+            modes['x86'] = ''
+    if 'zig' in modes:
+        modes['wasm'] = 'wasmer'
 
     srcs = stdout('git', 'ls-files', '*.c').split()
     main = stdout('git', 'grep', '-l', 'main(', *srcs).split()
@@ -70,7 +76,7 @@ x86  = $clang -arch x86_64 -arch x86_64h
             b.write(f'build {target(src)}: link {target(src)}.o'
                     f' {" ".join(target(src)+".o" for src in rest)}\n  cc=${cc}\n')
             if 'test' in src:
-                b.write(f'build {target(src)}.ok: run {target(src)}\n')
+                b.write(f'build {target(src)}.ok: run {target(src)}\n  runtime={modes[cc]}\n')
 
 rc = subprocess.call(['ninja'] + sys.argv[1:])
 if rc == 0:
