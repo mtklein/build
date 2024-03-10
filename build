@@ -44,7 +44,7 @@ rule run
                          , '-Wno-unsafe-buffer-usage'
                          ]
             if 'zig' in name:
-                flags = ['cc'] + flags
+                cmd = f'{cmd} cc'
             b.write(f'{name} = {cmd} {" ".join(flags)}\n')
             modes[name] = ''
 
