@@ -53,17 +53,18 @@ asan = $clang -fno-sanitize-recover=all -fsanitize=address,integer,undefined
 msan = $clang -fno-sanitize-recover=all -fsanitize=memory -fsanitize-memory-track-origins
 tsan = $clang -fno-sanitize-recover=all -fsanitize=thread
 lto  = $clang -flto
-fast = $clang -march=native -DNDEBUG
+nat  = $clang -march=native
 x86  = $clang -arch x86_64 -arch x86_64h
 wasm = $zig -target wasm32-wasi
 ''')
 
     if 'clang' in modes:
-        modes['asan'] = modes['tsan'] = modes['lto'] = modes['fast'] = ''
+        modes['asan'] = modes['tsan'] = modes['lto'] = ''
         if is_linux:
+            modes['nat']  = ''
             modes['msan'] = ''
         if is_mac:
-            modes['x86']  = ''
+            modes['x86']   = ''
             modes['clang'] = 'leaks -quiet -noContent --atExit --'
     if 'zig' in modes:
         modes['wasm'] = 'wasmer'
