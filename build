@@ -16,7 +16,7 @@ with open('build.ninja', 'w') as b:
 builddir = out
 
 rule compile
-  command = $cc -Os -momit-leaf-frame-pointer -g -Werror -fdiagnostics-color -MD -MF $out.d $
+  command = $cc -O1 -momit-leaf-frame-pointer -g -Werror -fdiagnostics-color -MD -MF $out.d $
                 -c $in -o $out
   depfile = $out.d
   deps    = gcc
