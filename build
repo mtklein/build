@@ -30,13 +30,11 @@ for pat in [ '/usr/bin/clang'
            ]:
     for cmd in glob.glob(pat):
         name = os.path.basename(cmd)
-        flags = ['-Wall', '-Wextra']
-        if 'clang' in name or 'zig' in name:
-            flags = [ '-Weverything'
-                    , '-Wno-declaration-after-statement'
-                    , '-Wno-poison-system-directories'
-                    , '-Wno-unsafe-buffer-usage'
-                    ]
+        flags = [ '-Weverything'
+                , '-Wno-declaration-after-statement'
+                , '-Wno-poison-system-directories'
+                , '-Wno-unsafe-buffer-usage'
+                ] if 'clang' in name or 'zig' in name else ['-Wall', '-Wextra']
         if 'zig' in name:
             cmd = f'{cmd} cc'
         print(f'{name} = {cmd} {" ".join(flags)}\n')
