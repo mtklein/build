@@ -37,7 +37,7 @@ for pat in [ '/usr/bin/clang'
                 ] if 'clang' in name or 'zig' in name else ['-Wall', '-Wextra']
         if 'zig' in name:
             cmd = f'{cmd} cc'
-        print(f'{name} = {cmd} {" ".join(flags)}\n')
+        print(f'{name} = {cmd} {" ".join(flags)}')
         modes[name] = ''
 
 print('''
@@ -57,12 +57,12 @@ rest = [src for src in srcs if src not in main]
 for cc in modes:
     target = lambda src: f'out/{cc}/{os.path.splitext(src)[0]}'
     for src in srcs:
-        print(f'build {target(src)}.o: compile {src}\n  cc=${cc}\n')
+        print(f'build {target(src)}.o: compile {src}\n  cc=${cc}')
     for src in main:
         print(f'build {target(src)}: link {target(src)}.o'
-              f' {" ".join(target(dep)+".o" for dep in rest)}\n  cc=${cc}\n')
+              f' {" ".join(target(dep)+".o" for dep in rest)}\n  cc=${cc}')
         if 'test' in src:
-            print(f'build {target(src)}.ok: run {target(src)}\n  runtime={modes[cc]}\n')
+            print(f'build {target(src)}.ok: run {target(src)}\n  runtime={modes[cc]}')
 
 sys.stdout.close()
 rc = subprocess.call(['ninja'] + sys.argv[1:])
