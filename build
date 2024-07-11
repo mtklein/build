@@ -42,7 +42,6 @@ for pat in [ '/usr/bin/clang'
 
 print('''
 asan = $clang -fno-sanitize-recover=all -fsanitize=address,integer,undefined
-msan = $clang -fno-sanitize-recover=all -fsanitize=memory -fsanitize-memory-track-origins
 tsan = $clang -fno-sanitize-recover=all -fsanitize=thread
 lto  = $clang -flto
 x86  = $clang -arch x86_64 -arch x86_64h
