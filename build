@@ -5,19 +5,13 @@ import os
 import subprocess
 import sys
 
-is_mac   = sys.platform.startswith('darwin')
-is_linux = sys.platform.startswith('linux')
+sys.stdout = open('build.ninja', 'w')
 
-def stdout(*cmd):
-    return subprocess.run(cmd, stdout=subprocess.PIPE).stdout.decode()
-
-with open('build.ninja', 'w') as b:
-    b.write('''
+print('''
 builddir = out
 
 rule compile
-  command = $cc -O1 -momit-leaf-frame-pointer -g -Werror -fdiagnostics-color -MD -MF $out.d $
-                -c $in -o $out
+  command = $cc -g -O1 -Werror -fdiagnostics-color -MD -MF $out.d -c $in -o $out
   depfile = $out.d
   deps    = gcc
 
@@ -28,63 +22,52 @@ rule run
   command = $runtime ./$in > $out
 ''')
 
-    modes = {}
-    for pat in ['/usr/bin/clang', '/opt/homebrew/opt/llvm/bin/clang-[0-9][0-9]',
-                '/usr/bin/gcc'  , '/opt/homebrew/opt/gcc/bin/gcc-[0-9][0-9]',
-                '/usr/bin/tcc',   '/opt/homebrew/bin/zig']:
-        for cmd in glob.glob(pat):
-            name = os.path.basename(cmd)
-            if 'gcc' in name and 'clang' in stdout(cmd, '--version'):
-                continue
-            flags = ['-Wall', '-Wextra']
-            if 'clang' in name or 'zig' in name:
-                flags = ['-Weverything'
-                         , '-Wno-declaration-after-statement'
-                         , '-Wno-poison-system-directories'
-                         , '-Wno-unsafe-buffer-usage'
-                         ]
-            if 'zig' in name:
-                cmd = f'{cmd} cc'
-            b.write(f'{name} = {cmd} {" ".join(flags)}\n')
-            modes[name] = ''
+modes = {}
+for pat in [ '/usr/bin/clang'
+           , '/opt/homebrew/bin/zig'
+           , '/opt/homebrew/opt/gcc/bin/gcc-[0-9][0-9]'
+           , '/opt/homebrew/opt/llvm/bin/clang-[0-9][0-9]'
+           ]:
+    for cmd in glob.glob(pat):
+        name = os.path.basename(cmd)
+        flags = ['-Wall', '-Wextra']
+        if 'clang' in name or 'zig' in name:
+            flags = [ '-Weverything'
+                    , '-Wno-declaration-after-statement'
+                    , '-Wno-poison-system-directories'
+                    , '-Wno-unsafe-buffer-usage'
+                    ]
+        if 'zig' in name:
+            cmd = f'{cmd} cc'
+        print(f'{name} = {cmd} {" ".join(flags)}\n')
+        modes[name] = ''
 
-    b.write('''
+print('''
 asan = $clang -fno-sanitize-recover=all -fsanitize=address,integer,undefined
 msan = $clang -fno-sanitize-recover=all -fsanitize=memory -fsanitize-memory-track-origins
 tsan = $clang -fno-sanitize-recover=all -fsanitize=thread
-leak = $clang
 lto  = $clang -flto
-nat  = $clang -march=native
 x86  = $clang -arch x86_64 -arch x86_64h
 wasm = $zig -target wasm32-wasi
 ''')
+modes.update(clang='leaks -quiet -noContent --atExit --',
+             asan='', tsan='', lto='', x86='', wasm='wasmer')
 
-    if 'clang' in modes:
-        modes['asan'] = modes['tsan'] = modes['lto'] = ''
-        if is_linux:
-            modes['nat']  = ''
-            modes['msan'] = ''
-        if is_mac:
-            modes['x86']  = ''
-            modes['leak'] = 'leaks -quiet -noContent --atExit --'
-    if 'zig' in modes:
-        modes['wasm'] = 'wasmer'
+srcs = subprocess.run(['git', 'ls-files', '*.c']    ,stdout=subprocess.PIPE).stdout.decode().split()
+main = subprocess.run(['git', 'grep', '-l', 'main('],stdout=subprocess.PIPE).stdout.decode().split()
+rest = [src for src in srcs if src not in main]
 
-    srcs = stdout('git', 'ls-files', '*.c').split()
-    main = stdout('git', 'grep', '-l', 'main(', *srcs).split()
-    rest = [src for src in srcs if src not in main]
+for cc in modes:
+    target = lambda src: f'out/{cc}/{os.path.splitext(src)[0]}'
+    for src in srcs:
+        print(f'build {target(src)}.o: compile {src}\n  cc=${cc}\n')
+    for src in main:
+        print(f'build {target(src)}: link {target(src)}.o'
+              f' {" ".join(target(dep)+".o" for dep in rest)}\n  cc=${cc}\n')
+        if 'test' in src:
+            print(f'build {target(src)}.ok: run {target(src)}\n  runtime={modes[cc]}\n')
 
-    for cc in modes:
-        target = lambda src: f'out/{cc}/{os.path.splitext(src)[0]}'
-        for src in srcs:
-            b.write(f'build {target(src)}.o: compile {src}\n  cc=${cc}\n')
-        for src in main:
-            b.write(f'build {target(src)}: link {target(src)}.o'
-                    f' {" ".join(target(src)+".o" for src in rest)}\n'
-                    f'  cc=${cc + " -dead_strip" if is_mac else ""}\n')
-            if 'test' in src:
-                b.write(f'build {target(src)}.ok: run {target(src)}\n  runtime={modes[cc]}\n')
-
+sys.stdout.close()
 rc = subprocess.call(['ninja'] + sys.argv[1:])
 if rc == 0:
     os.remove('build.ninja')
