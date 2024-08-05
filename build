@@ -45,7 +45,7 @@ asan = $clang -fno-sanitize-recover=all -fsanitize=address,integer,undefined
 tsan = $clang -fno-sanitize-recover=all -fsanitize=thread
 lto  = $clang -flto
 x86  = $clang -arch x86_64 -arch x86_64h
-wasm = $zig -target wasm32-wasi
+wasm = $zig -target wasm32-wasi -msimd128
 ''')
 modes.update(clang='leaks -quiet -noContent --atExit --',
              asan='', tsan='', lto='', x86='', wasm='wasmer')
