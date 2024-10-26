@@ -33,6 +33,8 @@ for pat in [ '/usr/bin/clang'
         flags = [ '-Weverything'
                 , '-Wno-declaration-after-statement'
                 , '-Wno-poison-system-directories'
+                , '-Wno-pre-c11-compat'
+                , '-Wno-unknown-warning-option'
                 , '-Wno-unsafe-buffer-usage'
                 ] if 'clang' in name or 'zig' in name else ['-Wall', '-Wextra']
         if 'zig' in name:
