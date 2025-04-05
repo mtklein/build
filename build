@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
+import collections
 import glob
+import graphlib
 import os
 import subprocess
 import sys
@@ -62,11 +64,38 @@ for cc in modes:
     target = lambda src: f'out/{cc}/{os.path.splitext(src)[0]}'
     for src in srcs:
         print(f'build {target(src)}.o: compile {src}\n  cc=${cc}')
+
+sys.stdout.flush()
+rc = subprocess.call(['ninja'] + sys.argv[1:])
+if rc != 0:
+    sys.exit(rc)
+
+owner = {}
+for src in srcs:
+    obj = os.path.splitext(src)[0] + '.o'
+    for sym in subprocess.check_output(['nm', '-gjU', 'out/clang/' + obj]).splitlines():
+        owner[sym] = obj
+
+deps = collections.defaultdict(set)
+for src in srcs:
+    obj = os.path.splitext(src)[0] + '.o'
+    for sym in subprocess.check_output(['nm', '-gju', 'out/clang/' + obj]).splitlines():
+        if sym in owner:
+            deps[obj].add(owner[sym])
+
+for path in graphlib.TopologicalSorter(deps).static_order():
+    indirect = set()
+    for dep in deps[path]:
+        indirect.update(deps[dep])
+    deps[path].update(indirect)
+
+for cc in modes:
     for src in main:
-        print(f'build {target(src)}: link {target(src)}.o'
-              f' {" ".join(target(dep)+".o" for dep in rest)}\n  cc=${cc}')
+        target = f'out/{cc}/{os.path.splitext(src)[0]}'
+        objs = [f'out/{cc}/' + dep for dep in sorted(deps[os.path.splitext(src)[0] + '.o'])]
+        print(f'build {target}: link {target}.o {" ".join(objs)}\n  cc=${cc}\n')
         if 'test' in src:
-            print(f'build {target(src)}.ok: run {target(src)}\n  runtime={modes[cc]}')
+            print(f'build {target}.ok: run {target}\n  runtime={modes[cc]}')
 
 sys.stdout.close()
 rc = subprocess.call(['ninja'] + sys.argv[1:])
