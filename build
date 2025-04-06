@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
-import collections
 import glob
-import graphlib
 import os
 import subprocess
 import sys
@@ -17,8 +15,11 @@ rule compile
   depfile = $out.d
   deps    = gcc
 
+rule deps
+  command = deps $in > $out
+
 rule link
-  command = $cc $in -o $out
+  command = $cc $in $$(grep $out $dyndep | cut -d\\| -f 2) -o $out
 
 rule run
   command = $runtime ./$in > $out
@@ -44,12 +45,13 @@ for pat in [ '/usr/bin/clang'
         print(f'{name} = {cmd} {" ".join(flags)}')
         modes[name] = ''
 
+#TODO: restore x86_64h
 print('''
 leak = $clang
 asan = $clang -fno-sanitize-recover=all -fsanitize=address,integer,undefined
 tsan = $clang -fno-sanitize-recover=all -fsanitize=thread
 lto  = $clang -flto
-x86  = $clang -arch x86_64 -arch x86_64h
+x86  = $clang -arch x86_64
 wasm = $zig -target wasm32-wasi -msimd128
 ''')
 # TODO: test failures don't cause leaks to fail.  If fixed, $leak can fold back into $clang.
@@ -61,39 +63,20 @@ main = subprocess.run(['git', 'grep', '-l', 'main('],stdout=subprocess.PIPE).std
 rest = [src for src in srcs if src not in main]
 
 for cc in modes:
-    target = lambda src: f'out/{cc}/{os.path.splitext(src)[0]}'
+    objs = []
     for src in srcs:
-        print(f'build {target(src)}.o: compile {src}\n  cc=${cc}')
+        obj = f'out/{cc}/{os.path.splitext(src)[0]}.o'
+        print(f'build {obj}: compile {src}')
+        print(f'  cc=${cc}')
+        objs.append(obj)
 
-sys.stdout.flush()
-rc = subprocess.call(['ninja'] + sys.argv[1:])
-if rc != 0:
-    sys.exit(rc)
+    print(f'build out/{cc}/link.dyndep: deps {" ".join(objs)}')
 
-owner = {}
-for src in srcs:
-    obj = os.path.splitext(src)[0] + '.o'
-    for sym in subprocess.check_output(['nm', '-gjU', 'out/clang/' + obj]).splitlines():
-        owner[sym] = obj
-
-deps = collections.defaultdict(set)
-for src in srcs:
-    obj = os.path.splitext(src)[0] + '.o'
-    for sym in subprocess.check_output(['nm', '-gju', 'out/clang/' + obj]).splitlines():
-        if sym in owner:
-            deps[obj].add(owner[sym])
-
-for path in graphlib.TopologicalSorter(deps).static_order():
-    indirect = set()
-    for dep in deps[path]:
-        indirect.update(deps[dep])
-    deps[path].update(indirect)
-
-for cc in modes:
     for src in main:
         target = f'out/{cc}/{os.path.splitext(src)[0]}'
-        objs = [f'out/{cc}/' + dep for dep in sorted(deps[os.path.splitext(src)[0] + '.o'])]
-        print(f'build {target}: link {target}.o {" ".join(objs)}\n  cc=${cc}\n')
+        print(f'build {target}: link {target}.o || out/{cc}/link.dyndep')
+        print(f'  cc=${cc}')
+        print(f'  dyndep=out/{cc}/link.dyndep')
         if 'test' in src:
             print(f'build {target}.ok: run {target}\n  runtime={modes[cc]}')
 
