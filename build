@@ -78,7 +78,8 @@ for cc in modes:
         print(f'  cc=${cc}')
         print(f'  dyndep=out/{cc}/link.dyndep')
         if 'test' in src:
-            print(f'build {target}.ok: run {target}\n  runtime={modes[cc]}')
+            print(f'build {target}.ok: run {target}')
+            print(f'  runtime={modes[cc]}')
 
 sys.stdout.close()
 rc = subprocess.call(['ninja'] + sys.argv[1:])
