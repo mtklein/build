@@ -19,7 +19,7 @@ rule deps
   command = deps $in > $out
 
 rule link
-  command = $cc $in $$(grep $out $dyndep | cut -d\\| -f 2) -o $out
+  command = $cc -dead_strip $in $$(grep $out $dyndep | cut -d\\| -f 2) -o $out
 
 rule run
   command = $runtime ./$in > $out
