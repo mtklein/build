@@ -61,9 +61,12 @@ wasm = $zig -target wasm32-wasi -msimd128 -mcpu=generic+tail_call
 modes.update(leak='leaks -quiet -noContent --atExit --',
              asan='', tsan='', lto='', x86='', avx='', wasm='wasmtime run --dir .')
 
-srcs = subprocess.run(['git', 'ls-files', '*.c']    ,stdout=subprocess.PIPE).stdout.decode().split()
-main = subprocess.run(['git', 'grep', '-l', 'main('],stdout=subprocess.PIPE).stdout.decode().split()
-want = subprocess.run(['git', 'ls-files', '*.want'] ,stdout=subprocess.PIPE).stdout.decode().split()
+def lines(*cmd):
+    return subprocess.run(cmd, stdout=subprocess.PIPE).stdout.decode().split()
+
+srcs = lines('git', 'ls-files', '*.c')
+main = lines('git', 'grep', '-l', 'main(')
+want = lines('ls', 'want')
 rest = [src for src in srcs if src not in main]
 
 for cc in modes:
@@ -87,10 +90,10 @@ for cc in modes:
 
     for path in want:
         target = f'out/{cc}/{os.path.splitext(path)[0]}'
-        print(f'build {target}.got: run {target}')
+        print(f'build out/{cc}/{path}: run {target}')
         print(f'  runtime={modes[cc]}')
         if cc not in {'leak'}:
-            print(f'build {target}.ok: diff {target}.got {path}')
+            print(f'build {target}.ok: diff out/{cc}/{path} want/{path}')
 
 sys.stdout.close()
 rc = subprocess.call(['ninja'] + sys.argv[1:])
