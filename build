@@ -52,11 +52,11 @@ tsan = $clang -fno-sanitize-recover=all -fsanitize=thread
 lto  = $clang -flto
 x86  = $clang -arch x86_64
 avx  = $clang -arch x86_64 -march=ivybridge
-wasm = $zig -target wasm32-wasi -msimd128
+wasm = $zig -target wasm32-wasi -msimd128 -mcpu=generic+tail_call
 ''')
 # TODO: test failures don't cause leaks to fail.  If fixed, $leak can fold back into $clang.
 modes.update(leak='leaks -quiet -noContent --atExit --',
-             asan='', tsan='', lto='', x86='', avx='', wasm='wasmer')
+             asan='', tsan='', lto='', x86='', avx='', wasm='wasmtime run --dir .')
 
 srcs = subprocess.run(['git', 'ls-files', '*.c']    ,stdout=subprocess.PIPE).stdout.decode().split()
 main = subprocess.run(['git', 'grep', '-l', 'main('],stdout=subprocess.PIPE).stdout.decode().split()
