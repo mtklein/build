@@ -66,7 +66,7 @@ def lines(*cmd):
 
 srcs = lines('git', 'ls-files', '*.c')
 main = lines('git', 'grep', '-l', 'main(')
-want = lines('ls', 'want')
+gold = lines('git', 'ls-files', '*.gold.*')
 rest = [src for src in srcs if src not in main]
 
 for cc in modes:
@@ -88,12 +88,12 @@ for cc in modes:
             print(f'build {target}.ok: run {target}')
             print(f'  runtime={modes[cc]}')
 
-    for path in want:
-        target = f'out/{cc}/{os.path.splitext(path)[0]}'
-        print(f'build out/{cc}/{path}: run {target}')
+    for path in gold:
+        binary,_,ext = path.split('.')
+        print(f'build out/{cc}/{binary}.{ext}: run out/{cc}/{binary}')
         print(f'  runtime={modes[cc]}')
         if cc not in {'leak'}:
-            print(f'build {target}.ok: diff out/{cc}/{path} want/{path}')
+            print(f'build out/{cc}/{binary}.ok: diff out/{cc}/{binary}.{ext} {path}')
 
 sys.stdout.close()
 rc = subprocess.call(['ninja'] + sys.argv[1:])
