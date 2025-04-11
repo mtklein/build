@@ -23,6 +23,9 @@ rule link
 
 rule run
   command = $runtime ./$in > $out
+
+rule diff
+  command = git diff --no-index $in > $out
 ''')
 
 modes = {}
@@ -60,6 +63,7 @@ modes.update(leak='leaks -quiet -noContent --atExit --',
 
 srcs = subprocess.run(['git', 'ls-files', '*.c']    ,stdout=subprocess.PIPE).stdout.decode().split()
 main = subprocess.run(['git', 'grep', '-l', 'main('],stdout=subprocess.PIPE).stdout.decode().split()
+want = subprocess.run(['git', 'ls-files', '*.want'] ,stdout=subprocess.PIPE).stdout.decode().split()
 rest = [src for src in srcs if src not in main]
 
 for cc in modes:
@@ -80,6 +84,13 @@ for cc in modes:
         if 'test' in src:
             print(f'build {target}.ok: run {target}')
             print(f'  runtime={modes[cc]}')
+
+    for path in want:
+        target = f'out/{cc}/{os.path.splitext(path)[0]}'
+        print(f'build {target}.got: run {target}')
+        print(f'  runtime={modes[cc]}')
+        if cc not in {'leak'}:
+            print(f'build {target}.ok: diff {target}.got {path}')
 
 sys.stdout.close()
 rc = subprocess.call(['ninja'] + sys.argv[1:])
