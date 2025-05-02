@@ -77,7 +77,8 @@ for cc in modes:
         print(f'  cc=${cc}')
         objs.append(obj)
 
-    print(f'build out/{cc}/link.dyndep: deps {" ".join(objs)}')
+    if objs:
+        print(f'build out/{cc}/link.dyndep: deps {" ".join(objs)}')
 
     for src in main:
         target = f'out/{cc}/{os.path.splitext(src)[0]}'
