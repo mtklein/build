@@ -90,11 +90,11 @@ for cc in modes:
             print(f'  runtime={modes[cc]}')
 
     for path in gold:
-        binary,_,ext = path.split('.')
-        print(f'build out/{cc}/{binary}.{ext}: run out/{cc}/{binary}')
+        target,_,ext = path.split('.')
+        print(f'build out/{cc}/{target}.{ext}: run out/{cc}/{target}')
         print(f'  runtime={modes[cc]}')
         if cc not in {'leak'}:
-            print(f'build out/{cc}/{binary}.ok: diff out/{cc}/{binary}.{ext} {path}')
+            print(f'build out/{cc}/{target}.ok: diff out/{cc}/{target}.{ext} {path}')
 
 sys.stdout.close()
 rc = subprocess.call(['ninja'] + sys.argv[1:])
